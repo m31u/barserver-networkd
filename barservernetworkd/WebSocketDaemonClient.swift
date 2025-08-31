@@ -1,14 +1,20 @@
 import Foundation
 
-class WebSocketDaemonClient {
+class WebSocketDaemonClient: NSObject, URLSessionWebSocketDelegate {
     private var url: String
     private var ws: URLSessionWebSocketTask?
     private var currentState: () -> Void
 
-    init(_ url: String, _ currentStateCallback: @escaping () -> Void) {
+    init(_ serverUrl: String, _ currentStateCallback: @escaping () -> Void) {
+        url = serverUrl
         currentState = currentStateCallback
-        self.url = url
+        super.init()
         connect(withURL: self.url)
+    }
+    
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        currentState()
+        receive()
     }
 
     func connect(withURL url: String) {
@@ -17,44 +23,13 @@ class WebSocketDaemonClient {
             return
         }
 
-        ws = URLSession(configuration: .default).webSocketTask(with: url)
+        ws = URLSession(configuration: .default, delegate: self, delegateQueue: .main).webSocketTask(with: url)
 
         if let ws = ws {
             ws.resume()
-            register()
         }
     }
 
-    func register() {
-        guard let ws = ws else {
-            print("couldn't register, Websocket task not initialized")
-            return
-        }
-
-        let data: [String: Any] = [
-            "type": "daemon",
-            "name": "NETWORK_DAEMON",
-        ]
-
-        guard let json = try? JSONSerialization.data(withJSONObject: data) else {
-            print("failed to create registration payload")
-            return
-        }
-
-        guard let payload = String(data: json, encoding: .utf8) else {
-            print("failed to create registration payload")
-            return
-        }
-
-        ws.send(URLSessionWebSocketTask.Message.string(payload)) { [self] error in
-            if let error = error {
-                print("error sending registration message \(error)")
-                return
-            }
-            currentState()
-            receive()
-        }
-    }
 
     func send(data: [String: Any]) {
         guard let ws = ws else {

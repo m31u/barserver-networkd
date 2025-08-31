@@ -72,7 +72,7 @@ class WiFiObserver: CWEventDelegate {
                 return
             }
             
-            wsDaemonClient = WebSocketDaemonClient("ws://localhost:3000/listen") { [self] in
+            wsDaemonClient = WebSocketDaemonClient("ws://localhost:3000/daemon?name=networkd") { [self] in
                 if let interface = client.interface() {
                     postMode(withInterface: interface)
                     postSSID(withInterface: interface)
